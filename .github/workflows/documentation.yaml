@@ -1,0 +1,53 @@
+name: Algorithm Docs Generation
+
+on:
+  pull_request:
+    branches: [ main, development ]
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-22.04
+
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Poetry
+        run: |
+          curl -sSL https://install.python-poetry.org | python3 -
+          echo "${HOME}/.local/bin" >> $GITHUB_PATH
+
+      - name: Configure Poetry to not create virtual environments
+        run: poetry config virtualenvs.create false
+
+      - name: Install dependencies
+        run: pip install -e .[cpu]
+
+      - name: Remove .so files
+        run: find . -name "*.so" -delete
+
+      - name: Run generation script
+        run: python docs/utils/gen_docs.py
+
+      - name: Verify generated file exists
+        run: |
+          if [ ! -f compression.rst ]; then
+            echo "Error: Generated file 'compression.rst' not found!"
+            exit 1
+          fi
+
+      - name: Upload generated file
+        uses: actions/upload-artifact@v4
+        with:
+          name: compression-rst
+          path: compression.rst
