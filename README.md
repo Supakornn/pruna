@@ -160,17 +160,17 @@ Pruna has everything you need to get started on optimizing your own models. To p
 
 For [Stable Diffusion XL](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0), we compare Auto Caching with [DeepCache](https://github.com/horseee/DeepCache) (available with Pruna). We combine these caching algorithms with torch.compile to get an additional **9%** reduction in inference latency, and we use [HQQ](https://github.com/mobiusml/hqq) 8-bit quantization to reduce the size of the model from **8.8GB** to **6.7GB**.
 
-<img src="./docs/assets/plots/benchmark_sdxl.svg" alt="SDXL Benchmark" style="max-width: 100%; height: auto;" />
+<img src="./docs/assets/plots/benchmark_sdxl.svg" alt="SDXL Benchmark"/>
 
 ### FLUX [dev]
 For [FLUX [dev]](https://huggingface.co/black-forest-labs/FLUX.1-dev), we compare Auto Caching with the popular [TeaCache](https://github.com/ali-vilab/TeaCache) algorithm. In this case, we used [Stable Fast](https://github.com/chengzeyi/stable-fast) to reduce the latency of Auto Caching by additional **13%**, and [HQQ](https://github.com/mobiusml/hqq) with 8-bit reduced the size of FLUX from **33GB** to **23GB**.
 
-<img src="./docs/assets/plots/benchmark_flux.svg" alt="FLUX [dev] Benchmark" style="max-width: 100%; height: auto;" />
+<img src="./docs/assets/plots/benchmark_flux.svg" alt="FLUX [dev] Benchmark"/>
 
 ### HunyuanVideo
 For [HunyuanVideo](https://huggingface.co/tencent/HunyuanVideo), we compare Auto Caching with [TeaCache](https://github.com/ali-vilab/TeaCache). Applying [HQQ](https://github.com/mobiusml/hqq) 8-bit quantization to the model reduced the size from **41GB** to **29GB**.
 
-<img src="./docs/assets/plots/benchmark_hunyuan.svg" alt="HunyuanVideo Benchmark" style="max-width: 100%; height: auto;" />
+<img src="./docs/assets/plots/benchmark_hunyuan.svg" alt="HunyuanVideo Benchmark"/>
 
 
 
@@ -498,80 +498,11 @@ If you can not find an answer to your question or problem in our [documentation]
 
 The Pruna package was made with 💜 by the Pruna AI team. [Contribute to the repository][docs-contributing] to become part of the Pruna family!
 
-<table border="0" cellspacing="0" cellpadding="0">
-  <tr>
-    <td align="center">
-    <a href="https://github.com/johnrachwan123">
-        <img src="./docs/assets/images/pruners/John.png" width="100px;" alt="John Rachwan"/>
-        <br /><sub><b>John Rachwan</b></sub>
-    </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/johannaSommer">
-        <img src="./docs/assets/images/pruners/Johanna.png" width="100px;" alt="Johanna Sommer"/>
-        <br /><sub><b>Johanna Sommer</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/sharpenb">
-        <img src="./docs/assets/images/pruners/Bertrand.png" width="100px;" alt="Bertrand Charpentier"/>
-        <br /><sub><b>Bertrand Charpentier</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/gsprochette">
-        <img src="./docs/assets/images/pruners/Gaspar.png" width="100px;" alt="Gaspar Rochette"/>
-        <br /><sub><b>Gaspar Rochette</b></sub>
-      </a>
-    </td>
-    </tr>
-    <tr>
-    <td align="center">
-      <a href="https://github.com/llcnt">
-        <img src="./docs/assets/images/pruners/Louis.png" width="100px;" alt="Louis Leconte"/>
-        <br /><sub><b>Louis Leconte</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/begumcig">
-        <img src="./docs/assets/images/pruners/Begum.png" width="100px;" alt="Begum Cig"/>
-        <br /><sub><b>Begüm Çığ</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/SaboniAmine">
-        <img src="./docs/assets/images/pruners/Amine.png" width="100px;" alt="Amine Saboni"/>
-        <br /><sub><b>Amine Saboni</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/gtregoat">
-        <img src="./docs/assets/images/pruners/Gabriel.png" width="100px;" alt="Gabriel Tregoat"/>
-        <br /><sub><b>Gabriel Tregoat</b></sub>
-      </a>
-    </td>
-    </tr>
-    <tr>
-    <td align="center">
-      <a href="https://github.com/nifleisch">
-        <img src="./docs/assets/images/pruners/Nils.png" width="100px;" alt="Nils Fleischmann"/>
-        <br /><sub><b>Nils Fleischmann</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/agNikitaras">
-          <img src="./docs/assets/images/pruners/Angelos.png" width="100px;" alt="Agi Nikitaras"/>
-        <br /><sub><b>Angelos Nikitaras</b></sub>
-      </a>
-    </td>
-    <td align="center">
-      <a href="https://github.com/guennemann">
-        <img src="./docs/assets/images/pruners/Stephan.png" width="100px;" alt="Stephan Günnemann"/>
-        <br /><sub><b>Stephan Günnemann</b></sub>
-      </a>
-    </td>
-  </tr>
-</table>
+<a href="https://github.com/PrunaAI/pruna/graphs/contributors">
+  <img src="https://pruna-github-repository.s3.eu-central-1.amazonaws.com/contributors.png" width="500" />
+</a>
+
+Contributors are displayed in a random order to avoid any perceived ranking.
 
 ## <img src="./docs/assets/images/pruna_emotional.png" alt="Pruna Emotional" width=20></img> Citation
 
