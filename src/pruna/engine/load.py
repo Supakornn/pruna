@@ -285,31 +285,26 @@ def load_hqq_diffusers(path: str, **kwargs) -> Any:
     hf_quantizer = HQQDiffusersQuantizer()
     AutoHQQHFDiffusersModel = construct_base_class(hf_quantizer.import_algorithm_packages())
 
-    # if it is a diffusers model, it saves the model_index.json file
-    if not os.path.exists(os.path.join(path, "model_index.json")):
-        model = AutoHQQHFDiffusersModel.from_quantized(
-            path, **filter_load_kwargs(AutoHQQHFDiffusersModel.from_quantized, kwargs)
-        )
-    else:
+    # If a pipeline was saved, load the backbone and the rest of the pipeline separately
+    if os.path.exists(os.path.join(path, "backbone_quantized")):
+        # load the backbone
+        loaded_backbone = AutoHQQHFDiffusersModel.from_quantized(os.path.join(path, "backbone_quantized"), **kwargs)
+        # Get the pipeline class name
         model_index = load_json_config(path, "model_index.json")
-
         cls = getattr(diffusers, model_index["_class_name"])
-        # we need to load the original model pipeline, and
-        # then replace the unet/transformer with the one from model_path.
-        loaded_transformer = AutoHQQHFDiffusersModel.from_quantized(path + "/transformer_quantized")
+        # If the pipeline has a transformer, load the transformer
         if "transformer" in model_index:
-            # transformers discards kwargs automatically, no need for filtering
-            model = cls.from_pretrained(path, transformer=None, **kwargs)
-            model.transformer = loaded_transformer
+            model = cls.from_pretrained(path, transformer=loaded_backbone, **kwargs)
+        # If the pipeline has a unet, load the unet
         elif "unet" in model_index:
-            # transformers discards kwargs automatically, no need for filtering
-            model = cls.from_pretrained(path, unet=None, **kwargs)
-            model.unet = loaded_transformer
+            model = cls.from_pretrained(path, unet=loaded_backbone, **kwargs)
+            # If the unet has up_blocks, we need to change the upsampler name to conv
             for layer in model.unet.up_blocks:
                 if layer.upsamplers is not None:
                     layer.upsamplers[0].name = "conv"
-        else:
-            raise ValueError("No transformer or unet found in model_index.json")
+    else:
+        # load the whole model if a pipeline wasn't saved
+        model = AutoHQQHFDiffusersModel.from_quantized(path, **kwargs)
     return model
 
 
