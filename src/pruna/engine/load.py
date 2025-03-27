@@ -64,14 +64,13 @@ def load_pruna_model(model_path: str, **kwargs) -> tuple[Any, SmashConfig]:
     model = LOAD_FUNCTIONS[smash_config.load_fn](model_path, **kwargs)
 
     try:
-        if hasattr(model, "to"):
-            if "device_map" not in kwargs and "device" not in kwargs:
-                model.to(smash_config.device)
+        if hasattr(model, "to") and "device_map" not in kwargs and "device" not in kwargs:
+            model.to(smash_config.device)
     except Exception:
         pruna_logger.error(f"Error casting model to device: {smash_config.device}. Skipping device casting.")
 
     # check if there are any algorithms to reapply
-    if any([algorithm is not None for algorithm in smash_config.reapply_after_load.values()]):
+    if any(algorithm is not None for algorithm in smash_config.reapply_after_load.values()):
         model = resmash_fn(model, smash_config)
 
     return model, smash_config
@@ -248,7 +247,7 @@ def load_quantized(model_path: str, **kwargs) -> Any:
     )
 
     # fused rotational embeddings introduce complex tensors that can not be saved afterwards
-    if any([param.dtype.is_complex for param in model.parameters()]):
+    if any(param.dtype.is_complex for param in model.parameters()):
         # free memory from previously loaded model
         del model
 
@@ -283,12 +282,15 @@ def load_hqq_diffusers(path: str, **kwargs) -> Any:
     )
 
     hf_quantizer = HQQDiffusersQuantizer()
-    AutoHQQHFDiffusersModel = construct_base_class(hf_quantizer.import_algorithm_packages())
+    auto_hqq_hf_diffusers_model = construct_base_class(hf_quantizer.import_algorithm_packages())
 
     # If a pipeline was saved, load the backbone and the rest of the pipeline separately
     if os.path.exists(os.path.join(path, "backbone_quantized")):
         # load the backbone
-        loaded_backbone = AutoHQQHFDiffusersModel.from_quantized(os.path.join(path, "backbone_quantized"), **kwargs)
+        loaded_backbone = auto_hqq_hf_diffusers_model.from_quantized(
+            os.path.join(path, "backbone_quantized"),
+            **filter_load_kwargs(auto_hqq_hf_diffusers_model.from_quantized, kwargs),
+        )
         # Get the pipeline class name
         model_index = load_json_config(path, "model_index.json")
         cls = getattr(diffusers, model_index["_class_name"])
@@ -304,11 +306,11 @@ def load_hqq_diffusers(path: str, **kwargs) -> Any:
                     layer.upsamplers[0].name = "conv"
     else:
         # load the whole model if a pipeline wasn't saved
-        model = AutoHQQHFDiffusersModel.from_quantized(path, **kwargs)
+        model = auto_hqq_hf_diffusers_model.from_quantized(path, **kwargs)
     return model
 
 
-class LOAD_FUNCTIONS(Enum):
+class LOAD_FUNCTIONS(Enum):  # noqa: N801
     """
     Enumeration of load functions for different model types.
 
