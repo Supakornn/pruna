@@ -149,8 +149,8 @@ Simple metrics that compute values directly from inputs without maintaining stat
 - Energy consumption metrics
 - Memory usage metrics
 
-`elapsed_time <https://github.com/Lightning-AI/torchmetrics>`_
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+elapsed_time
+""""""""""""
 
 Measures inference time, latency, and throughput.
 
@@ -165,7 +165,7 @@ Measures inference time, latency, and throughput.
   | ``device``: Device to run inference on (default "cuda").
   | ``timing_type``: Type of timing to use ("sync" or "async", default "sync").
 
-`gpu_memory <https://github.com/NVIDIA/pynvml>`_
+`gpu_memory <https://pypi.org/project/nvidia-ml-py/>`_
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 
 Measures peak GPU memory usage during model loading and execution.
@@ -265,7 +265,7 @@ Measures the proportion of correct predictions in classification tasks.
 :Required: Inputs, ground truth and predictions. TorchMetrics requires a 'task' parameter to be set to 'binary', 'multiclass', or 'multilabel'. Each task type may have additional specific requirements - please refer to the TorchMetrics documentation for details.
 :Parameters: Accepts all parameters from the TorchMetrics Accuracy implementation (task, num_classes, threshold, etc.).
 
-`precision <https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/classification/precision.py>`_
+`precision <https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/classification/precision_recall.py>`_
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 Measures the proportion of positive identifications that were actually correct.
 
@@ -274,7 +274,7 @@ Measures the proportion of positive identifications that were actually correct.
 :Required: Inputs, ground truth and predictions. TorchMetrics requires a 'task' parameter to be set to 'binary', 'multiclass', or 'multilabel'. Each task type may have additional specific requirements - please refer to the TorchMetrics documentation for details.
 :Parameters: Accepts all parameters from the TorchMetrics Precision implementation (task, num_classes, threshold, etc.).
 
-`recall <https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/classification/recall.py>`_
+`recall <https://github.com/Lightning-AI/torchmetrics/blob/master/src/torchmetrics/classification/precision_recall.py>`_
 """"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
 Measures the proportion of actual positives that were identified correctly.
 
