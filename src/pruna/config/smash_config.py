@@ -39,7 +39,7 @@ ADDITIONAL_ARGS = [
     "device",
     "cache_dir",
     "save_fns",
-    "load_fn",
+    "load_fns",
     "reapply_after_load",
 ]
 
@@ -85,7 +85,7 @@ class SmashConfig:
         self.cache_dir = tempfile.mkdtemp(dir=cache_dir_prefix)
 
         self.save_fns: list[str] = []
-        self.load_fn: str | None = None
+        self.load_fns: list[str] = []
         self.reapply_after_load: dict[str, str | None] = dict.fromkeys(ALGORITHM_GROUPS)
         self.tokenizer: PreTrainedTokenizerBase | None = None
         self.processor: ProcessorMixin | None = None
@@ -112,7 +112,7 @@ class SmashConfig:
             and self.device == other.device
             and self.cache_dir_prefix == other.cache_dir_prefix
             and self.save_fns == other.save_fns
-            and self.load_fn == other.load_fn
+            and self.load_fns == other.load_fns
             and self.reapply_after_load == other.reapply_after_load
         )
 
@@ -138,6 +138,11 @@ class SmashConfig:
         with open(os.path.join(path, SMASH_CONFIG_FILE_NAME), "r") as f:
             json_string = f.read()
             config_dict = json.loads(json_string)
+
+        # support deprecated load_fn
+        if "load_fn" in config_dict:
+            value = config_dict.pop("load_fn")
+            config_dict["load_fns"] = [value]
 
         for name in ADDITIONAL_ARGS:
             # do not load the old cache directory
@@ -233,7 +238,7 @@ class SmashConfig:
 
         # flush also saving / load functionality associated with a specific configuration
         self.save_fns = []
-        self.load_fn = None
+        self.load_fns = []
         self.reapply_after_load = dict.fromkeys(ALGORITHM_GROUPS)
 
         # reset potentiallypreviously used cache directory

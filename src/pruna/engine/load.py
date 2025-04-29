@@ -62,10 +62,18 @@ def load_pruna_model(model_path: str, **kwargs) -> tuple[Any, SmashConfig]:
 
     resmash_fn = kwargs.pop("resmash_fn", resmash)
 
-    if smash_config.load_fn is None:
+    if len(smash_config.load_fns) == 0:
         raise ValueError("Load function has not been set.")
 
-    model = LOAD_FUNCTIONS[smash_config.load_fn](model_path, **kwargs)
+    # load torch artifacts if they exist
+    if LOAD_FUNCTIONS.torch_artifacts.name in smash_config.load_fns:
+        load_torch_artifacts(model_path, **kwargs)
+        smash_config.load_fns.remove(LOAD_FUNCTIONS.torch_artifacts.name)
+
+    if len(smash_config.load_fns) > 1:
+        pruna_logger.error(f"Load functions not used: {smash_config.load_fns[1:]}")
+
+    model = LOAD_FUNCTIONS[smash_config.load_fns[0]](model_path, **kwargs)
 
     try:
         if hasattr(model, "to") and "device_map" not in kwargs and "device" not in kwargs:
@@ -260,8 +268,12 @@ def load_diffusers_model(path: str, **kwargs) -> Any:
     Any
         The loaded diffusers model.
     """
-    # if it is a diffusers model, it saves the model_index.json file
-    model_index = load_json_config(path, "model_index.json")
+    if os.path.exists(os.path.join(path, "model_index.json")):
+        # if it is a diffusers pipeline, it saves the model_index.json file
+        model_index = load_json_config(path, "model_index.json")
+    else:
+        # individual components like the unet or the vae are saved with a config.json file
+        model_index = load_json_config(path, "config.json")
 
     cls = getattr(diffusers, model_index["_class_name"])
     # transformers discards kwargs automatically, no need for filtering
@@ -284,7 +296,9 @@ def load_pickled(path: str, **kwargs) -> Any:
     Any
         The loaded pickled model.
     """
-    return torch.load(os.path.join(path, PICKLED_FILE_NAME), **filter_load_kwargs(torch.load, kwargs))
+    return torch.load(
+        os.path.join(path, PICKLED_FILE_NAME), weights_only=False, **filter_load_kwargs(torch.load, kwargs)
+    )
 
 
 def load_hqq(model_path: str, **kwargs) -> Any:
@@ -365,6 +379,23 @@ def load_quantized(model_path: str, **kwargs) -> Any:
         )
 
     return model
+
+
+def load_torch_artifacts(model_path: str, **kwargs) -> None:
+    """
+    Load a torch artifacts from the given model path.
+
+    Parameters
+    ----------
+    model_path : str
+        The path to the model directory.
+    **kwargs : Any
+        Additional keyword arguments to pass to the model loading function.
+    """
+    with open(os.path.join(model_path, "artifact_bytes.bin"), "rb") as f:
+        artifact_bytes = f.read()
+
+    torch.compiler.load_cache_artifacts(artifact_bytes)
 
 
 def load_hqq_diffusers(path: str, **kwargs) -> Any:
@@ -452,6 +483,7 @@ class LOAD_FUNCTIONS(Enum):  # noqa: N801
     hqq = partial(load_hqq)
     hqq_diffusers = partial(load_hqq_diffusers)
     awq_quantized = partial(load_quantized)
+    torch_artifacts = partial(load_torch_artifacts)
 
     def __call__(self, *args, **kwargs) -> Any:
         """
