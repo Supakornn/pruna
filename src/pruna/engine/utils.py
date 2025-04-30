@@ -99,7 +99,11 @@ def move_to_device(model: Any, device: str | torch.device, raise_error: bool = F
     if hasattr(model, "to"):
         try:
             model.to(device)
-        except (ValueError, RecursionError, RuntimeError) as e:
+        except torch.cuda.OutOfMemoryError as e:
+            # there is anyway no way to recover from this error
+            # raise it here for better traceability
+            raise e
+        except (ValueError, RecursionError, RuntimeError, AttributeError) as e:
             if raise_error:
                 raise ValueError(f"Could not move model to device: {str(e)}")
             else:
