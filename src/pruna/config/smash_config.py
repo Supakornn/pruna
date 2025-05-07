@@ -35,7 +35,7 @@ from pruna.data.pruna_datamodule import PrunaDataModule, TokenizerMissingError
 from pruna.logging.logger import pruna_logger
 
 ADDITIONAL_ARGS = [
-    "max_batch_size",
+    "batch_size",
     "device",
     "cache_dir",
     "save_fns",
@@ -55,7 +55,9 @@ class SmashConfig:
     Parameters
     ----------
     max_batch_size : int, optional
-        The maximum number of batches to process at once. Default is 1.
+        Deprecated. The number of batches to process at once. Default is 1.
+    batch_size : int, optional
+        The number of batches to process at once. Default is 1.
     device : str, optional
         The device to be used for smashing, e.g., 'cuda' or 'cpu'. Default is 'cuda'.
     cache_dir_prefix : str, optional
@@ -66,7 +68,8 @@ class SmashConfig:
 
     def __init__(
         self,
-        max_batch_size: int = 1,
+        max_batch_size: int | None = None,
+        batch_size: int = 1,
         device: str = "cuda",
         cache_dir_prefix: str = os.path.join(os.path.expanduser("~"), ".cache", "pruna"),
         configuration: Configuration | None = None,
@@ -76,7 +79,15 @@ class SmashConfig:
             SMASH_SPACE.get_default_configuration() if configuration is None else configuration
         )
         self.config_space: ConfigurationSpace = self._configuration.config_space
-        self.max_batch_size = max_batch_size
+        if max_batch_size is not None:
+            warn(
+                "max_batch_size is deprecated. Please use batch_size instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            self.batch_size = max_batch_size
+        else:
+            self.batch_size = batch_size
         self.device = device
 
         self.cache_dir_prefix = cache_dir_prefix
@@ -89,10 +100,13 @@ class SmashConfig:
         self.reapply_after_load: dict[str, str | None] = dict.fromkeys(ALGORITHM_GROUPS)
         self.tokenizer: PreTrainedTokenizerBase | None = None
         self.processor: ProcessorMixin | None = None
-        self._data: PrunaDataModule | None = None
+        self.data: PrunaDataModule | None = None
 
         # internal variable *to save time* by avoiding compilers saving models for inference-only smashing
         self._prepare_saving = True
+
+        # internal variable to indicated that a model has been smashed for a specific batch size
+        self.__locked_batch_size = False
 
         # ensure the cache directory is deleted on program exit
         atexit.register(self.cleanup_cache_dir)
@@ -108,7 +122,7 @@ class SmashConfig:
 
         return (
             self._configuration == other._configuration
-            and self.max_batch_size == other.max_batch_size
+            and self.batch_size == other.batch_size
             and self.device == other.device
             and self.cache_dir_prefix == other.cache_dir_prefix
             and self.save_fns == other.save_fns
@@ -150,6 +164,12 @@ class SmashConfig:
                 if name in config_dict:
                     del config_dict[name]
                 continue
+
+            # backwards compatibility for old batch size argument
+            if name == "batch_size" and "batch_size" not in config_dict:
+                setattr(self, name, config_dict.pop("max_batch_size"))
+                continue
+
             setattr(self, name, config_dict.pop(name))
 
         self._configuration = Configuration(SMASH_SPACE, values=config_dict)
@@ -188,7 +208,7 @@ class SmashConfig:
             self.tokenizer.save_pretrained(os.path.join(path, TOKENIZER_SAVE_PATH))
         if self.processor:
             self.processor.save_pretrained(os.path.join(path, PROCESSOR_SAVE_PATH))
-        if self._data is not None:
+        if self.data is not None:
             pruna_logger.info("Data detected in smash config, this will be detached and not reloaded...")
 
     def load_dict(self, config_dict: dict) -> None:
@@ -241,8 +261,20 @@ class SmashConfig:
         self.load_fns = []
         self.reapply_after_load = dict.fromkeys(ALGORITHM_GROUPS)
 
-        # reset potentiallypreviously used cache directory
+        # reset potentially previously used cache directory
         self.reset_cache_dir()
+
+    def __get_dataloader(self, dataloader_name: str, **kwargs) -> torch.utils.data.DataLoader | None:
+        if self.data is None:
+            return None
+
+        if "batch_size" in kwargs and kwargs["batch_size"] != self.batch_size:
+            pruna_logger.warning(
+                f"Batch size {kwargs['batch_size']} is not the same as the batch size {self.batch_size}"
+                f"set in the SmashConfig. Using the {self.batch_size}."
+            )
+        kwargs["batch_size"] = self.batch_size
+        return getattr(self.data, dataloader_name)(**kwargs)
 
     def train_dataloader(self, **kwargs) -> torch.utils.data.DataLoader | None:
         """
@@ -260,10 +292,7 @@ class SmashConfig:
         torch.utils.data.DataLoader | None
             The DataLoader instance associated with the SmashConfig.
         """
-        if self._data is None:
-            return None
-        else:
-            return self._data.train_dataloader(**kwargs)
+        return self.__get_dataloader("train_dataloader", **kwargs)
 
     def val_dataloader(self, **kwargs) -> torch.utils.data.DataLoader | None:
         """
@@ -278,13 +307,10 @@ class SmashConfig:
 
         Returns
         -------
-        DataLoader
+        torch.utils.data.DataLoader | None
             The DataLoader instance associated with the SmashConfig.
         """
-        if self._data is None:
-            return None
-        else:
-            return self._data.val_dataloader(**kwargs)
+        return self.__get_dataloader("val_dataloader", **kwargs)
 
     def test_dataloader(self, **kwargs) -> torch.utils.data.DataLoader | None:
         """
@@ -299,13 +325,10 @@ class SmashConfig:
 
         Returns
         -------
-        DataLoader
+        torch.utils.data.DataLoader | None
             The DataLoader instance associated with the SmashConfig.
         """
-        if self._data is None:
-            return None
-        else:
-            return self._data.test_dataloader(**kwargs)
+        return self.__get_dataloader("test_dataloader", **kwargs)
 
     @singledispatchmethod
     def add_data(self, arg):
@@ -324,7 +347,7 @@ class SmashConfig:
     def _(self, dataset_name: str, *args, **kwargs) -> None:
         try:
             kwargs["tokenizer"] = self.tokenizer
-            self._data = PrunaDataModule.from_string(dataset_name, *args, **kwargs)
+            self.data = PrunaDataModule.from_string(dataset_name, *args, **kwargs)
         except TokenizerMissingError:
             raise ValueError(
                 f"Tokenizer is required for {dataset_name} but not provided. "
@@ -335,7 +358,7 @@ class SmashConfig:
     def _(self, datasets: list, collate_fn: str, *args, **kwargs) -> None:
         try:
             kwargs["tokenizer"] = self.tokenizer
-            self._data = PrunaDataModule.from_datasets(datasets, collate_fn, *args, **kwargs)
+            self.data = PrunaDataModule.from_datasets(datasets, collate_fn, *args, **kwargs)
         except TokenizerMissingError:
             raise ValueError(
                 f"Tokenizer is required for {collate_fn} but not provided. "
@@ -346,7 +369,7 @@ class SmashConfig:
     def _(self, datasets: tuple, collate_fn: str, *args, **kwargs) -> None:
         try:
             kwargs["tokenizer"] = self.tokenizer
-            self._data = PrunaDataModule.from_datasets(datasets, collate_fn, *args, **kwargs)
+            self.data = PrunaDataModule.from_datasets(datasets, collate_fn, *args, **kwargs)
         except TokenizerMissingError:
             raise ValueError(
                 f"Tokenizer is required for {collate_fn} but not provided. "
@@ -355,7 +378,7 @@ class SmashConfig:
 
     @add_data.register(PrunaDataModule)
     def _(self, datamodule: PrunaDataModule) -> None:
-        self._data = datamodule
+        self.data = datamodule
 
     def add_tokenizer(self, tokenizer: str | PreTrainedTokenizerBase) -> None:
         """
@@ -403,7 +426,7 @@ class SmashConfig:
             raise ValueError(
                 f"{algorithm_name} requires a processor. Please provide it with smash_config.add_processor()."
             )
-        if algorithm_requirements["dataset_required"] and self._data is None:
+        if algorithm_requirements["dataset_required"] and self.data is None:
             raise ValueError(f"{algorithm_name} requires a dataset. Please provide it with smash_config.add_data().")
 
     def get_tokenizer_name(self) -> str | None:
@@ -421,6 +444,21 @@ class SmashConfig:
             return self.tokenizer.tokenizer.name_or_path
         else:
             return self.tokenizer.name_or_path
+
+    def lock_batch_size(self) -> None:
+        """Lock the batch size in the SmashConfig."""
+        self.__locked_batch_size = True
+
+    def is_batch_size_locked(self) -> bool:
+        """
+        Check if the batch size is locked in the SmashConfig.
+
+        Returns
+        -------
+        bool
+            True if the batch size is locked, False otherwise.
+        """
+        return self.__locked_batch_size
 
     def __getitem__(self, name: str) -> Any:
         """
@@ -525,6 +563,7 @@ class SmashConfig:
                 deprecated = True
             ###
             # end of deprecation logic for assignment of algorithms as lists
+            ###
             if value is not None:
                 self.check_argument_compatibility(value)
             if deprecated:
@@ -547,7 +586,25 @@ class SmashConfig:
 
             name = remove_starting_prefix(name)
             # deprecation logic over
-            return self._configuration.__setitem__(name, value)
+            # start of deprecation logic for batch size as algorithm hyperparameter
+            deprecated_hyperparameters = [
+                "whisper_s2t_batch_size",
+                "ifw_batch_size",
+                "higgs_example_batch_size",
+                "diffusers_higgs_example_batch_size",
+                "torch_compile_batch_size",
+            ]
+            if name in deprecated_hyperparameters:
+                warn(
+                    f"The {name} hyperparameter is deprecated. You can use SmashConfig(batch_size={value}) or "
+                    f"smash_config.batch_size={value} instead.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
+                self.batch_size = value
+            # end of deprecation logic for batch size as algorithm hyperparameter
+            else:
+                return self._configuration.__setitem__(name, value)
 
     def __getattr__(self, attr: str) -> object:  # noqa: D105
         if attr == "_data":
@@ -625,6 +682,10 @@ class SmashConfigPrefixWrapper:
             The value from the config.
         """
         return getattr(self._base_config, attr)
+
+    def lock_batch_size(self) -> None:
+        """Lock the batch size in the SmashConfig."""
+        self._base_config.lock_batch_size()
 
 
 def convert_numpy_types(input_value: Any) -> Any:
