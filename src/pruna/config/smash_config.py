@@ -32,6 +32,7 @@ from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 
 from pruna.config.smash_space import ALGORITHM_GROUPS, SMASH_SPACE
 from pruna.data.pruna_datamodule import PrunaDataModule, TokenizerMissingError
+from pruna.engine.utils import check_device_compatibility
 from pruna.logging.logger import pruna_logger
 
 ADDITIONAL_ARGS = [
@@ -58,8 +59,9 @@ class SmashConfig:
         Deprecated. The number of batches to process at once. Default is 1.
     batch_size : int, optional
         The number of batches to process at once. Default is 1.
-    device : str, optional
-        The device to be used for smashing, e.g., 'cuda' or 'cpu'. Default is 'cuda'.
+    device : str | torch.device | None, optional
+        The device to be used for smashing, e.g., 'cuda' or 'cpu'. Default is None.
+        If None, the best available device will be used.
     cache_dir_prefix : str, optional
         The prefix for the cache directory. If None, a default cache directory will be created.
     configuration : Configuration, optional
@@ -70,7 +72,7 @@ class SmashConfig:
         self,
         max_batch_size: int | None = None,
         batch_size: int = 1,
-        device: str = "cuda",
+        device: str | torch.device | None = None,
         cache_dir_prefix: str = os.path.join(os.path.expanduser("~"), ".cache", "pruna"),
         configuration: Configuration | None = None,
     ) -> None:
@@ -88,7 +90,7 @@ class SmashConfig:
             self.batch_size = max_batch_size
         else:
             self.batch_size = batch_size
-        self.device = device
+        self.device = check_device_compatibility(device)
 
         self.cache_dir_prefix = cache_dir_prefix
         if not os.path.exists(cache_dir_prefix):
@@ -152,6 +154,10 @@ class SmashConfig:
         with open(os.path.join(path, SMASH_CONFIG_FILE_NAME), "r") as f:
             json_string = f.read()
             config_dict = json.loads(json_string)
+
+        # check device compatibility
+        if "device" in config_dict:
+            config_dict["device"] = check_device_compatibility(config_dict["device"])
 
         # support deprecated load_fn
         if "load_fn" in config_dict:
@@ -230,6 +236,10 @@ class SmashConfig:
          'deepcache_interval': 4,
         )
         """
+        # check device compatibility
+        if "device" in config_dict:
+            config_dict["device"] = check_device_compatibility(config_dict["device"])
+
         # since this function is only used for loading algorithm settings, we will ignore additional arguments
         filtered_config_dict = {k: v for k, v in config_dict.items() if k not in ADDITIONAL_ARGS}
         discarded_args = [k for k in config_dict if k in ADDITIONAL_ARGS]

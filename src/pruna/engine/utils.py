@@ -241,3 +241,42 @@ def determine_dtype(pipeline: Any) -> torch.dtype:
 
     pruna_logger.warning("Could not determine dtype of model, defaulting to torch.float32.")
     return torch.float32
+
+
+def check_device_compatibility(device: str | torch.device | None) -> str:
+    """
+    Validate if the specified device is available on the current system.
+
+    Supports 'cuda', 'mps', 'cpu' and other PyTorch devices.
+    If device is None, the best available device will be returned.
+
+    Parameters
+    ----------
+    device : str | torch.device | None
+        Device to validate (e.g. 'cuda', 'mps', 'cpu').
+
+    Returns
+    -------
+    str
+        Best available device name.
+    """
+    if isinstance(device, torch.device):
+        device = str(device)
+
+    if device is None:
+        device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+        pruna_logger.info(f"No device specified. Using best available device: '{device}'")
+        return device
+
+    if device == "cpu":
+        return "cpu"
+
+    if device == "cuda" and not torch.cuda.is_available():
+        pruna_logger.warning("'cuda' requested but not available. Falling back to 'cpu'")
+        return "cpu"
+
+    if device == "mps" and not torch.backends.mps.is_available():
+        pruna_logger.warning("'mps' requested but not available. Falling back to 'cpu'")
+        return "cpu"
+
+    return device
