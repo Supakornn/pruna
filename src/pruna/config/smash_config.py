@@ -178,6 +178,33 @@ class SmashConfig:
 
             setattr(self, name, config_dict.pop(name))
 
+        # Normalize algorithm groups in config dict
+        current_groups = set(config_dict.keys())
+        expected_groups = set(ALGORITHM_GROUPS)
+
+        # Get all applied algorithms and their arguments from the expected groups
+        applied_algorithms = set()
+        for group in expected_groups:
+            if group in config_dict and config_dict[group] is not None:
+                applied_algorithms.add(config_dict[group])
+        applied_algorithm_args = {
+            key for key in config_dict if any(key.startswith(f"{alg}_") for alg in applied_algorithms)
+        }
+
+        # Remove extra groups with warning if they have values
+        for group in current_groups - expected_groups - applied_algorithm_args:
+            if config_dict[group] is not None:
+                pruna_logger.warning(
+                    f"Removing non-existing algorithm group: {group}, with value: {config_dict[group]}.\n"
+                    "This is likely due to a version difference between the saved model and the current library.\n"
+                    "You can use an older version of Pruna to load the model or reconfigure the model."
+                )
+            del config_dict[group]
+
+        # Add missing groups with info message
+        for group in expected_groups - current_groups:
+            config_dict[group] = None
+
         self._configuration = Configuration(SMASH_SPACE, values=config_dict)
 
         if os.path.exists(os.path.join(path, TOKENIZER_SAVE_PATH)):
