@@ -28,22 +28,8 @@ from diffusers.models.modeling_utils import ModelMixin
 from pruna.logging.logger import pruna_logger
 
 
-def safe_memory_cleanup(objects_to_be_deleted: list[Any] | None = None) -> None:
-    """
-    Perform safe memory cleanup by collecting garbage and clearing CUDA cache, after deleting the given objects.
-
-    Parameters
-    ----------
-    objects_to_be_deleted : list[Any] | None
-        The objects to be deleted.
-    """
-    if objects_to_be_deleted is not None:
-        for obj in objects_to_be_deleted:
-            if hasattr(obj, "device") and obj.device != "cpu":
-                move_to_device(obj, "cpu")
-            if hasattr(obj, "destroy"):
-                obj.destroy()
-            del obj
+def safe_memory_cleanup() -> None:
+    """Perform safe memory cleanup by collecting garbage and clearing CUDA cache."""
     gc.collect()
     torch.cuda.empty_cache()
 
@@ -119,7 +105,7 @@ def move_to_device(model: Any, device: str | torch.device, raise_error: bool = F
             # there is anyway no way to recover from this error
             # raise it here for better traceability
             raise e
-        except (ValueError, RecursionError, RuntimeError, AttributeError) as e:
+        except (ValueError, RecursionError, RuntimeError, AttributeError, TypeError) as e:
             if raise_error:
                 raise ValueError(f"Could not move model to device: {str(e)}")
             else:
