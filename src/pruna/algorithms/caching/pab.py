@@ -28,7 +28,6 @@ from pruna.engine.model_checks import (
     is_mochi_pipeline,
     is_wan_pipeline,
 )
-from pruna.logging.logger import pruna_logger
 
 
 class PABCacher(PrunaCacher):
@@ -184,13 +183,6 @@ class PABCacher(PrunaCacher):
         Dict[str, Any]
             The algorithm packages.
         """
-        try:
-            from diffusers import PyramidAttentionBroadcastConfig
-        except ModuleNotFoundError:
-            pruna_logger.error(
-                "You are trying to use PAB, but the PyramidAttentionBroadcastConfig can not be imported from diffusers. "
-                "This is likely because your diffusers version is too old."
-            )
-            raise
+        from diffusers import PyramidAttentionBroadcastConfig
 
         return dict(pab_config=PyramidAttentionBroadcastConfig)
