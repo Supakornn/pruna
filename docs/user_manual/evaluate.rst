@@ -11,19 +11,49 @@ Haven't smashed a model yet? Check out the :doc:`optimize guide </docs_pruna/use
 Basic Evaluation Workflow
 -------------------------
 
-|pruna| follows a simple workflow for evaluating model optimizations:
+|pruna| follows a simple workflow for evaluating model optimizations. You can use either the direct parameters approach or the Task-based approach:
+
+**Direct Parameters Workflow:**
 
 .. mermaid::
    :align: center
 
    graph LR
+    User -->|configures| Metrics
+    User -->|configures| PrunaDataModule
+    PrunaModel -->|provides predictions| EvaluationAgent
+    EvaluationAgent -->|evaluates| PrunaModel
+    EvaluationAgent -->|returns| D["Evaluation Results"]
+
+    subgraph E["Evaluation Configuration"]
+        PrunaDataModule
+        Metrics
+    end
+
+    Metrics-->|is used by| EvaluationAgent
+    PrunaDataModule -->|is used by| EvaluationAgent
+    User -->|creates| EvaluationAgent
+
+    style User fill:#bbf,stroke:#333,stroke-width:2px
+    style EvaluationAgent fill:#bbf,stroke:#333,stroke-width:2px
+    style PrunaDataModule fill:#bbf,stroke:#333,stroke-width:2px
+    style PrunaModel fill:#bbf,stroke:#333,stroke-width:2px
+    style D fill:#bbf,stroke:#333,stroke-width:2px
+    style Metrics fill:#bbf,stroke:#333,stroke-width:2px
+
+**Task-based Workflow:**
+
+.. mermaid::
+   :align: center
+
+   flowchart LR
     User -->|creates| Task
     User -->|creates| EvaluationAgent
     Task -->|defines| PrunaDataModule
     Task -->|defines| Metrics
     Task -->|is used by| EvaluationAgent
     Metrics -->|includes| B["Base Metrics"]
-    Metrics -->|includes| C["Stateless Metric"]
+    Metrics -->|includes| C["Stateful Metrics"]
     PrunaModel -->|provides predictions| EvaluationAgent
     EvaluationAgent -->|evaluates| PrunaModel
     EvaluationAgent -->|returns| D["Evaluation Results"]
@@ -51,47 +81,75 @@ Basic Evaluation Workflow
     style B fill:#f9f,stroke:#333,stroke-width:2px
     style C fill:#f9f,stroke:#333,stroke-width:2px
 
-Let's see what that looks like in code.
-
-.. code-block:: python
-
-    from pruna import PrunaModel
-    from pruna.data.pruna_datamodule import PrunaDataModule
-    from pruna.evaluation.evaluation_agent import EvaluationAgent
-    from pruna.evaluation.task import Task
-
-    # Load the optimized model
-    optimized_model = PrunaModel.from_hub("PrunaAI/Llama-3.2-1b-Instruct-smashed")
-
-    # Create and configure Task
-    datamodule = PrunaDataModule.from_string(
-        dataset_name="WikiText",
-        tokenizer=optimized_model.smash_config.tokenizer,
-    )
-    datamodule.limit_datasets(10)
-    task = Task(request=["perplexity"], datamodule=datamodule, device="cpu")
-
-    # Create and configure EvaluationAgent
-    eval_agent = EvaluationAgent(task)
-
-    # Optional: tweak model generation parameters for benchmarking
-    optimized_model.inference_handler.model_args.update(
-        {"max_new_tokens": 100}
-    )
-
-    # Evaluate the model
-    results = eval_agent.evaluate(optimized_model)
+The implementation details and initialization options are covered in the sections below.
 
 Evaluation Components
 ---------------------
 
 The |pruna| package provides a variety of evaluation metrics to assess your models.
-In this section, we’ll introduce the evaluation metrics you can use.
+In this section, we'll introduce the evaluation metrics you can use.
+
+EvaluationAgent Initialization
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``EvaluationAgent`` is the main class for evaluating model performance. It can be initialized using two approaches:
+
+.. tabs::
+
+    .. tab:: Direct Parameters
+
+        Pass request, datamodule, and device directly to the constructor:
+
+        .. code-block:: python
+
+            from pruna.evaluation.evaluation_agent import EvaluationAgent
+            from pruna.data.pruna_datamodule import PrunaDataModule
+
+            eval_agent = EvaluationAgent(
+                request=["accuracy", "perplexity"],
+                datamodule=PrunaDataModule.from_string('WikiText'),
+                device="cpu"
+            )
+
+    .. tab:: Task-based
+
+        Create a Task object that encapsulates the configuration:
+
+        .. code-block:: python
+
+            from pruna.evaluation.evaluation_agent import EvaluationAgent
+            from pruna.evaluation.task import Task
+            from pruna.data.pruna_datamodule import PrunaDataModule
+
+            task = Task(
+                request=["accuracy", "perplexity"],
+                datamodule=PrunaDataModule.from_string('WikiText'),
+                device="cpu"
+            )
+            eval_agent = EvaluationAgent(task)
+
+Parameters
+~~~~~~~~~~
+
+- **request**: ``str | List[str | BaseMetric | StatefulMetric]`` - The metrics to evaluate
+- **datamodule**: ``PrunaDataModule`` - The data module containing the evaluation dataset
+- **device**: ``str | torch.device | None`` - The device to use for evaluation (defaults to best available)
 
 Task
 ^^^^
 
-The ``Task`` is a class that defines the task you want to evaluate your model on and it requires a set of :doc:`Metrics </reference/evaluation>` and a :doc:`PrunaDataModule </reference/pruna_model>` to perform the evaluation.
+The ``Task`` class provides an alternative way to define evaluation configurations. It encapsulates the evaluation parameters and can be passed directly to the ``EvaluationAgent`` constructor.
+
+.. code-block:: python
+
+    from pruna.evaluation.task import Task
+    from pruna.data.pruna_datamodule import PrunaDataModule
+
+    task = Task(
+        request=["accuracy", "perplexity"],
+        datamodule=PrunaDataModule.from_string('WikiText'),
+        device="cpu"
+    )
 
 Metrics
 ~~~~~~~
@@ -101,7 +159,7 @@ Metrics are the core components that calculate specific performance indicators. 
 - **Base Metrics**: These metrics compute values directly from inputs without maintaining state across batches.
 - **Stateful Metrics**: Metrics that maintain internal state and accumulate information across multiple batches. These are typically used for quality assessment.
 
-The ``Task`` accepts ``Metrics`` in three ways:
+The ``EvaluationAgent`` accepts ``Metrics`` in three ways:
 
 .. tabs::
 
@@ -111,11 +169,11 @@ The ``Task`` accepts ``Metrics`` in three ways:
 
         .. code-block:: python
 
-            from pruna.evaluation.task import Task
+            from pruna.evaluation.evaluation_agent import EvaluationAgent
             from pruna.data.pruna_datamodule import PrunaDataModule
 
-            task = Task(
-                request="image_generation_quality",
+            eval_agent = EvaluationAgent(
+                request ="image_generation_quality",
                 datamodule=PrunaDataModule.from_string('LAION256'),
                 device="cpu"
             )
@@ -126,7 +184,7 @@ The ``Task`` accepts ``Metrics`` in three ways:
 
         .. code-block:: python
 
-            from pruna.evaluation.task import Task
+            from pruna.evaluation.evaluation_agent import EvaluationAgent
             from pruna.data.pruna_datamodule import PrunaDataModule
 
             task = Task(
@@ -141,7 +199,7 @@ The ``Task`` accepts ``Metrics`` in three ways:
 
         .. code-block:: python
 
-            from pruna.evaluation.task import Task
+            from pruna.evaluation.evaluation_agent import EvaluationAgent
             from pruna.data.pruna_datamodule import PrunaDataModule
             from pruna.evaluation.metrics import CMMD, TorchMetricWrapper
 
@@ -190,6 +248,7 @@ These high-level modes abstract away the underlying input ordering. Internally, 
 Internal Call Types
 ~~~~~~~~~~~~~~~~~~~~
 
+The following table lists the supported internal call types and examples of metrics using them.
 The following table lists the supported internal call types and examples of metrics using them.
 
 This is what's happening under the hood when you pass ``call_type="single"`` or ``call_type="pairwise"`` to a metric.
@@ -262,7 +321,7 @@ Data modules are a core component of the evaluation framework, providing standar
 
 A more detailed overview of the ``PrunaDataModule``, its datasets and their corresponding collate functions can be found in the :doc:`Data Module Overview </docs_pruna/user_manual/configure>` section.
 
-The ``Task`` accepts ``PrunaDataModule`` in two different ways:
+The ``EvaluationAgent`` accepts ``PrunaDataModule`` in two different ways:
 
 .. tabs::
 
@@ -337,15 +396,10 @@ Lastly, you can limit the number of samples in the dataset by using the ``PrunaD
     # Use different limits for each split
     datamodule.limit_datasets([50, 10, 20])  # train, val, test
 
-EvaluationAgent
-^^^^^^^^^^^^^^^
+Evaluation Examples
+-------------------
 
-The ``EvaluationAgent`` is a class that evaluates the performance of your model.
-
-To evaluate a model with the ``EvaluationAgent``, you need to create a ``Task`` with ``Metrics`` and a ``PrunaDataModule``.
-Then, initialize an ``EvaluationAgent`` with that task and call the ``evaluate()`` method with your model.
-
-We can then chose to evaluate a single model or a pair of models.
+The ``EvaluationAgent`` evaluates model performance and can work in both single-model and pairwise modes.
 
 - **Single-Model mode**: each model is evaluated independently, producing metrics that only pertain to that model's performance. The metrics are computed from the model's outputs without reference to any other model.
 - **Pairwise mode**: metrics compare the outputs of the current model against the first model evaluated by the agent. The first model's outputs are cached by the EvaluationAgent and used as a reference for subsequent evaluations.
@@ -433,11 +487,17 @@ Let's see how this works in code.
             wrapped_pipe.inference_handler.model_args.update(inference_arguments)
             wrapped_pipe.inference_handler.update_model(wrapped_pipe)
 
-            # Evaluate base model, all models need to be wrapped in a PrunaModel before passing them to the EvaluationAgent
+            # Evaluate base model first (cached for comparison)
             first_results = eval_agent.evaluate(pipe)
 
-            # Evaluate smashed model
+            # Evaluate smashed model (compared against base model)
             smashed_results = eval_agent.evaluate(smashed_pipe)
+            print(smashed_results)
+
+EvaluationAgent Initialization Options
+--------------------------------------
+
+You can choose between the two initialization approaches shown above based on your preference and project requirements. Both approaches provide identical functionality and can be used interchangeably.
 
 Best Practices
 --------------
@@ -451,3 +511,8 @@ Use pairwise metrics for comparison
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When comparing an optimized model against the baseline, use pairwise metrics to get direct comparison scores.
+
+Choose your initialization style
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Both direct parameters and Task-based initialization are valid approaches. Choose the one that best fits your project's coding patterns and requirements.
