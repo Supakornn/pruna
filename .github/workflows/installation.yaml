@@ -10,6 +10,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.repository }}-installation-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   installation:
     runs-on: ${{ matrix.os }}

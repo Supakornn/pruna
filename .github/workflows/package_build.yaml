@@ -10,6 +10,10 @@ on:
       - main
   workflow_dispatch:
 
+concurrency:
+  group: ci-${{ github.repository }}-package-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     strategy:
