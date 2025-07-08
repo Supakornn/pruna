@@ -21,6 +21,30 @@ author = "- Pruna AI GmbH"
 [tool.mypy]
 ignore_missing_imports = true
 
+[tool.coverage.run]
+source = ["src/pruna"]
+
+[tool.coverage.report]
+omit = ["src/pruna/tests/*"]
+show_missing = true
+skip_covered = false
+
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_level = "INFO"
+
+addopts = [
+    "--cov=src/pruna",
+    "--cov-report=term-missing",
+    "--cov-config=pyproject.toml",
+]
+
+python_files = "test_*.py"
+
+testpaths = [
+    "src/pruna/tests",
+]
+
 [tool.uv]
 index-url = "https://pypi.org/simple/"
 extra-index-url = ["https://prunaai.pythonanywhere.com/simple/"]
