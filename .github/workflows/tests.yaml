@@ -1,16 +1,19 @@
-name: Code Quality Checks
+name: Code Quality & Tests
 
 permissions:
   contents: read
   pull-requests: read
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
     branches:
       - main
 
 concurrency:
-  group: ci-${{ github.repository }}-linting-${{ github.ref }}
+  group: ci-${{ github.repository }}-tests-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,3 +51,24 @@ jobs:
       - name: Set lint check output
         id: lint-check
         run: echo "success=true" >> $GITHUB_OUTPUT
+  test:
+    runs-on: pruna-cpu
+
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: ./.github/actions/setup-uv-project
+
+      - name: Run tests
+        run: |
+          pytest -m "cpu and not slow and not high_cpu"

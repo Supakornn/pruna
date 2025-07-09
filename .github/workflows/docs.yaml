@@ -11,7 +11,7 @@ on:
       - main
 
 concurrency:
-  group: ci-${{ github.repository }}-documentation-${{ github.ref }}
+  group: ci-${{ github.repository }}-docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
