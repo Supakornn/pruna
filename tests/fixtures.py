@@ -104,6 +104,15 @@ def get_automodel_transformers(model_id: str, **kwargs: dict[str, Any]) -> tuple
     return model, smash_config
 
 
+def get_transformers_pipeline_for_specific_task(
+    model_id: str, task: str, **kwargs: dict[str, Any]
+) -> tuple[Any, SmashConfig]:
+    """Get a transformers pipeline for specific task."""
+    model = pipeline(task, model=model_id, **kwargs)
+    smash_config = SmashConfig()
+    return model, smash_config
+
+
 def get_torchvision_model(name: str) -> tuple[Any, SmashConfig]:
     """Get a torchvision model for image classification."""
     model = torchvision_get_model(name=name)
@@ -131,6 +140,12 @@ MODEL_FACTORY: dict[str, Callable] = {
     "mobilenet_v2": partial(get_torchvision_model, "mobilenet_v2"),
     "resnet_18": partial(get_torchvision_model, "resnet18"),
     # image generation models
+    "stable_diffusion_v1_4": partial(get_diffusers_model, "CompVis/stable-diffusion-v1-4"),
+    "stable_diffusion_3_medium_diffusers": partial(
+        get_diffusers_model,
+        "stabilityai/stable-diffusion-3-medium-diffusers",
+    ),
+    "ddpm-cifar10": partial(get_diffusers_model, "google/ddpm-cifar10-32"),
     "sd_tiny_random": partial(get_diffusers_model, "dg845/tiny-random-stable-diffusion"),
     "sana_tiny_random": partial(get_diffusers_model, "katuni4ka/tiny-random-sana"),
     "flux_tiny_random": partial(get_diffusers_model, "katuni4ka/tiny-random-flux", torch_dtype=torch.bfloat16),
@@ -138,6 +153,9 @@ MODEL_FACTORY: dict[str, Callable] = {
     "opt_tiny_random": partial(get_automodel_transformers, "yujiepan/opt-tiny-random"),
     "smollm_135m": partial(get_automodel_transformers, "HuggingFaceTB/SmolLM2-135M"),
     "llama_3_tiny_random": partial(get_automodel_transformers, "llamafactory/tiny-random-Llama-3"),
+    "llama_3_tiny_random_as_pipeline": partial(
+        get_transformers_pipeline_for_specific_task, "llamafactory/tiny-random-Llama-3", task="text-generation"
+    ),
     "dummy_lambda": dummy_model,
     # image generation AR models
     "tiny_janus_pro": partial(get_automodel_image_text_to_text_transformers, "loulou2/tiny_janus"),

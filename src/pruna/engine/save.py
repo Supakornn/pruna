@@ -318,6 +318,13 @@ def save_model_hqq(model: Any, model_path: str | Path, smash_config: SmashConfig
     smash_config : SmashConfig
         The SmashConfig object containing the save and load functions.
     """
+    # make sure to save the pipeline along with the tokenizer
+    if isinstance(model, transformers.Pipeline):
+        if model.tokenizer is not None:
+            model.tokenizer.save_pretrained(model_path)
+        save_model_hqq(model.model, model_path, smash_config)
+        return
+
     from pruna.algorithms.quantization.hqq import HQQQuantizer
 
     algorithm_packages = HQQQuantizer().import_algorithm_packages()
