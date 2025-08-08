@@ -133,7 +133,7 @@ MODEL_FACTORY: dict[str, Callable] = {
     # image generation models
     "sd_tiny_random": partial(get_diffusers_model, "dg845/tiny-random-stable-diffusion"),
     "sana_tiny_random": partial(get_diffusers_model, "katuni4ka/tiny-random-sana"),
-    "flux_tiny_random": partial(get_diffusers_model, "katuni4ka/tiny-random-flux"),
+    "flux_tiny_random": partial(get_diffusers_model, "katuni4ka/tiny-random-flux", torch_dtype=torch.bfloat16),
     # text generation models
     "opt_tiny_random": partial(get_automodel_transformers, "yujiepan/opt-tiny-random"),
     "smollm_135m": partial(get_automodel_transformers, "HuggingFaceTB/SmolLM2-135M"),
@@ -141,4 +141,6 @@ MODEL_FACTORY: dict[str, Callable] = {
     "dummy_lambda": dummy_model,
     # image generation AR models
     "tiny_janus_pro": partial(get_automodel_image_text_to_text_transformers, "loulou2/tiny_janus"),
+    "wan_tiny_random": partial(get_diffusers_model, "PrunaAI/wan-t2v-tiny-random", torch_dtype=torch.bfloat16),
+    "flux_tiny": partial(get_diffusers_model, "loulou2/tiny_flux", torch_dtype=torch.float16),
 }
