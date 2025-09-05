@@ -70,7 +70,6 @@ These tutorials will guide you through the process of using |pruna| to optimize 
 
       Optimize your ``diffusion`` model with ``deepcache`` ``caching``.
 
-
 .. toctree::
    :hidden:
    :maxdepth: 1
