@@ -94,6 +94,24 @@ class TargetModules(UnconstrainedHyperparameter):
         return super().legal_value(value)
 
 
+def is_targeted(path: str, target_modules: TARGET_MODULES_TYPE) -> bool:
+    """
+    Check if a path is targeted.
+
+    Parameters
+    ----------
+    path : str
+        The path to check.
+    target_modules : TARGET_MODULES_TYPE
+        The target modules specifying which modules are targeted.
+    """
+    include = target_modules.get("include", ["*"])
+    exclude = target_modules.get("exclude", [])
+    is_included = any(fnmatch.fnmatch(path, _include) for _include in include)
+    is_excluded = any(fnmatch.fnmatch(path, _exclude) for _exclude in exclude)
+    return is_included and not is_excluded
+
+
 def expand_list_of_targeted_paths(target_modules: TARGET_MODULES_TYPE, model: Any) -> List[str]:
     """
     Convert the target modules to a list of module paths.
@@ -115,20 +133,14 @@ def expand_list_of_targeted_paths(target_modules: TARGET_MODULES_TYPE, model: An
     ValueError
         If no targeted subpath is found within the model.
     """
-    include = target_modules.get("include", ["*"])
-    exclude = target_modules.get("exclude", [])
     modules_paths = []
     for root_name, module in get_nn_modules(model).items():
         module_paths = [
-            f"{root_name}{'.' + path if path else ''}" if root_name else path for path, _ in module.named_modules()
+            f"{root_name}{'.' + path if path else ''}" if root_name else path
+            for path, submodule in module.named_modules()
         ]
-        matching_modules = [
-            path
-            for path in module_paths
-            if any(fnmatch.fnmatch(path, _include) for _include in include)
-            and not any(fnmatch.fnmatch(path, _exclude) for _exclude in exclude)
-        ]
-        modules_paths.extend(matching_modules)
+        module_paths = [path for path in module_paths if is_targeted(path, target_modules)]
+        modules_paths.extend(module_paths)
 
     if not modules_paths:
         raise ValueError(f"No targeted subpath found within the model from target_modules {target_modules}")
@@ -171,6 +183,94 @@ def expand_dict_of_roots_and_subpaths(
             modules_with_subpaths[root_name] = (module, targeted_submodules)
 
     return modules_with_subpaths
+
+
+def is_leaf_module(module: torch.nn.Module, path: str | None = None) -> bool:
+    """
+    Check if a module is a leaf module.
+
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The module to check.
+    path : str | None
+        An optional, phantom argument to make this function a valid filter function.
+
+    Returns
+    -------
+    bool
+        True if the module is a leaf module, False otherwise.
+    """
+    return len(list(module.children())) == 0
+
+
+def filter_targeted_modules(
+    keep_targeted_fn: Callable[[torch.nn.Module, str | None], bool],
+    model: Any,
+    target_modules: TARGET_MODULES_TYPE,
+) -> TARGET_MODULES_TYPE:
+    """
+    Expand the target modules to exclude modules incompatible with FLUTE kernels.
+
+    Parameters
+    ----------
+    keep_targeted_fn : Callable[[torch.nn.Module, str | None], bool]
+        The function to check if a targeted module should be kept.
+    model : Any
+        The model to get the default target modules for.
+    target_modules : TARGET_MODULES_TYPE
+        The target modules to expand.
+
+    Returns
+    -------
+    TARGET_MODULES_TYPE
+        The expanded target modules.
+    """
+    additional_exclude: List[str] = []
+
+    for root_path, (root, subpaths) in expand_dict_of_roots_and_subpaths(target_modules, model).items():
+        subpaths_set = set(subpaths)  # faster when there are many subpaths
+        for subpath, module in root.named_modules():
+            if subpath not in subpaths_set:
+                continue  # no need to check if it should be kept if it isn't included in the first place
+            full_path = f"{root_path}.{subpath}" if root_path is not None else subpath
+            if not keep_targeted_fn(module, full_path):
+                additional_exclude.append(full_path)
+    return {"include": target_modules["include"], "exclude": target_modules["exclude"] + additional_exclude}
+
+
+def get_skipped_submodules(
+    module: torch.nn.Module,
+    subpaths: List[str],
+    filter_fn: Callable[[torch.nn.Module, str | None], bool] | None = None,
+) -> List[str]:
+    """
+    Get the skipped submodules.
+
+    Parameters
+    ----------
+    module : torch.nn.Module
+        The module to get the skipped submodules from.
+    subpaths : List[str]
+        The subpaths to get the skipped submodules from.
+    filter_fn : Callable[[torch.nn.Module, str | None], bool] | None
+        The function to check if a skipped module should be returned or not. By default, all skipped modules
+        are returned. This could be used to only return paths to leaf modules for example.
+
+    Returns
+    -------
+    List[str]
+        The list of submodules not listed in subpaths.
+    """
+    if filter_fn is None:
+        # default behavior: keep all skipped modules
+        def filter_fn(_module: torch.nn.Module, _path: str | None) -> bool:
+            return True
+
+    subpaths_set = set(subpaths)  # quicker for lookups if the model is very large
+    return [
+        path for path, submodule in module.named_modules() if path not in subpaths_set and filter_fn(submodule, path)
+    ]
 
 
 def map_targeted_nn_roots(
