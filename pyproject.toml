@@ -18,8 +18,8 @@ convention = "numpy"
 [tool.ruff.lint.flake8-copyright]
 author = "- Pruna AI GmbH"
 
-[tool.mypy]
-ignore_missing_imports = true
+[tool.ty.rules]
+unresolved-import = "ignore"
 
 [tool.coverage.run]
 source = ["src/pruna"]
@@ -161,7 +161,7 @@ dev = [
     "pytest-cov",
     "coverage",
     "docutils",
-    "mypy",
+  "ty",
     "types-PyYAML",
     "logbar",
     "pytest-xdist>=3.8.0",
