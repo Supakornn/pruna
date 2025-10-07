@@ -33,7 +33,7 @@ def setup_wikitext_dataset() -> List[Dataset]:
     List[Dataset]
         The WikiText dataset.
     """
-    return load_dataset("mikasenghaas/wikitext-2", split=["train", "validation", "test"])
+    return load_dataset("mikasenghaas/wikitext-2", split=["train", "validation", "test"])  # type: ignore[return-value]
 
 
 def setup_smoltalk_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
@@ -81,7 +81,7 @@ def setup_smoltalk_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
     val_ds = val_ds.map(_prepare_text)
     test_ds = test_data.map(_prepare_text)
 
-    return train_ds, val_ds, test_ds
+    return train_ds, val_ds, test_ds  # type: ignore[return-value]
 
 
 def setup_smolsmoltalk_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
@@ -129,7 +129,7 @@ def setup_smolsmoltalk_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
     val_ds = val_ds.map(_prepare_text)
     test_ds = test_ds.map(_prepare_text)
 
-    return train_ds, val_ds, test_ds
+    return train_ds, val_ds, test_ds  # type: ignore[return-value]
 
 
 def setup_pubchem_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
@@ -148,9 +148,9 @@ def setup_pubchem_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
     Tuple[Dataset, Dataset, Dataset]
         The PubChem dataset.
     """
-    dataset = load_dataset("alxfgh/PubChem10M_SELFIES")["train"]
+    dataset = load_dataset("alxfgh/PubChem10M_SELFIES")["train"]  # type: ignore[index]
     dataset = dataset.rename_column("SELFIES", "text")
-    return split_train_into_train_val_test(dataset, seed)
+    return split_train_into_train_val_test(dataset, seed)  # type: ignore[return-value]
 
 
 def setup_openassistant_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
@@ -169,9 +169,9 @@ def setup_openassistant_dataset(seed: int) -> Tuple[Dataset, Dataset, Dataset]:
     Tuple[Dataset, Dataset, Dataset]
         The OpenAssistant dataset.
     """
-    train_dataset, test_dataset = load_dataset("timdettmers/openassistant-guanaco", split=["train", "test"])
+    train_dataset, test_dataset = load_dataset("timdettmers/openassistant-guanaco", split=["train", "test"])  # type: ignore[misc]
     train_ds, val_ds = split_train_into_train_val(train_dataset, seed)
-    return train_ds, val_ds, test_dataset
+    return train_ds, val_ds, test_dataset  # type: ignore[return-value]
 
 
 def setup_c4_dataset() -> Tuple[Dataset, Dataset, Dataset]:
@@ -189,4 +189,4 @@ def setup_c4_dataset() -> Tuple[Dataset, Dataset, Dataset]:
     val_dataset = load_dataset("allenai/c4", "en", split="validation", streaming=True)
     pruna_logger.info("Received only train and val datasets as iterable datasets, copying validation dataset to test.")
     test_dataset = copy.deepcopy(val_dataset)
-    return train_dataset, val_dataset, test_dataset
+    return train_dataset, val_dataset, test_dataset  # type: ignore[return-value]
