@@ -22,6 +22,15 @@ repos:
 
   - repo: local
     hooks:
+      - id: ty
+        name: ty check
+        entry: uvx ty check .
+        language: system
+        types: [python]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
       - id: check-pruna-pro
         name: Check for pruna_pro
         entry: >
